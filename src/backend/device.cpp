@@ -155,3 +155,80 @@ PIMicroOp DisplayDevice::tick(void)
 
     return nullptr;
 }
+
+Tape::Tape(std::string path) {
+    if (!(fp = fopen(path.c_str(), "w+"))) {
+        throw lc3::utils::exception("Could not open tape `" + path + "': "
+                                    + strerror(errno));
+    }
+}
+
+Tape::~Tape(void) {
+    if (fclose(fp)) {
+        throw lc3::utils::exception("Could not close tape: " + strerror(errno));
+    }
+}
+
+TapeDriveDevice::TapeDriveDevice(std::vector<Tape> &tapes) : tapes(tapes)
+{
+    recv_status.setValue(0x0000);
+    recv_data.setValue(0x0000);
+    send_status.setValue(0x0000);
+    send_data.setValue(0x0000);
+}
+
+void TapeDriveDevice::startup(void)
+{
+    // TODO: remove this?
+}
+
+void TapeDriveDevice::shutdown(void)
+{
+    // TODO: remove this?
+}
+
+std::pair<uint16_t, PIMicroOp> TapeDriveDevice::read(uint16_t addr)
+{
+    uint16_t value;
+    switch (addr) {
+        case TRSR:
+            value = recv_status.getValue();
+            break;
+        case TSSR:
+            value = send_status.getValue();
+            break;
+        case TRDR:
+            // Clear ready bit. Don't bother with micro-op nonsense
+            recv_status.setValue(recv_status.getValue() & 0x7FFF);
+            value = recv_data.getValue();
+            break;
+        default:
+            value = 0x0000;
+    }
+    return std::make_pair(value, nullptr);
+}
+
+PIMicroOp TapeDriveDevice::write(uint16_t addr, uint16_t value)
+{
+    if (addr == TSDR) {
+        // Clear ready bit. Don't bother with micro-op nonsense
+        send_status.setValue(send_status.getValue() & 0x7FFF);
+        send_data.setValue(value);
+        break;
+    }
+
+    return nullptr;
+}
+
+std::vector<uint16_t> TapeDriveDevice::getAddrMap(void) const
+{
+    return { TRSR, TRDR, TSSR, TSDR };
+}
+
+PIMicroOp TapeDriveDevice::tick(void)
+{
+    // Set ready bit.
+    status.setValue(status.getValue() | 0x8000);
+
+    return nullptr;
+}

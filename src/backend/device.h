@@ -100,6 +100,38 @@ namespace core
         MemLocation status;
         MemLocation data;
     };
+
+    // TODO: move to tape.h
+    class Tape
+    {
+    public:
+        Tape(std::string path);
+        ~Tape(void);
+    private:
+        FILE *fp;
+    };
+
+    class TapeDriveDevice : public IDevice
+    {
+    public:
+        TapeDriveDevice(std::vector<Tape> &tapes);
+        virtual ~TapeDriveDevice(void) override = default;
+
+        virtual void startup(void) override;
+        virtual void shutdown(void) override;
+        virtual std::pair<uint16_t, PIMicroOp> read(uint16_t addr) override;
+        virtual PIMicroOp write(uint16_t addr, uint16_t value) override;
+        virtual std::vector<uint16_t> getAddrMap(void) const override;
+        virtual std::string getName(void) const override { return "Tape Drive"; }
+        virtual PIMicroOp tick(void) override;
+
+    private:
+        std::vector<Tape> &tapes;
+        MemLocation recv_status;
+        MemLocation recv_data;
+        MemLocation send_status;
+        MemLocation send_data;
+    };
 };
 };
 
