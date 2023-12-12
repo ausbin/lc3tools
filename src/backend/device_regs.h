@@ -25,10 +25,10 @@ static constexpr uint16_t BSP = 0xFFFA;
 static constexpr uint16_t PSR = 0xFFFC;
 static constexpr uint16_t MCR = 0xFFFE;
 // Extension for Tape I/O
-static constexpr uint16_t TRSR = 0xFDFE; // Tape Receive SR
-static constexpr uint16_t TRDR = 0xFDFC; // Tape Receive DR
-static constexpr uint16_t TSSR = 0xFDFA; // Tape Send SR
-static constexpr uint16_t TSDR = 0xFDF8; // Tape Send DR
+static constexpr uint16_t TRSR = 0xFE08; // Tape Receive SR
+static constexpr uint16_t TRDR = 0xFE0A; // Tape Receive DR
+static constexpr uint16_t TSSR = 0xFE0C; // Tape Send SR
+static constexpr uint16_t TSDR = 0xFE0E; // Tape Send DR
 
 
 #endif

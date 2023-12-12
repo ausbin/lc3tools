@@ -105,16 +105,46 @@ namespace core
     class Tape
     {
     public:
-        Tape(std::string path);
+        Tape(std::string path) : path(path), fp(nullptr), file_size(0), file_pos(0), max_pos(0) {}
         ~Tape(void);
+
+        void seek(size_t pos);
+        int getc(void);
+        void putc(uint8_t data);
     private:
+        std::string path;
         FILE *fp;
+        size_t file_size;
+        size_t file_pos;
+        size_t max_pos;
+
+        void openFileIfNeeded(void);
+        void growIfNeeded(size_t pos);
+        void resizeTo(size_t size);
     };
 
     class TapeDriveDevice : public IDevice
     {
     public:
-        TapeDriveDevice(std::vector<Tape> &tapes);
+        enum class SendOpcode {
+            SEEK = 0x0, // 0b00
+            GETC = 0x1, // 0b01
+            PUTC = 0x2, // 0b10
+        };
+
+        enum class RecvOpcode {
+            ERROR = 0x0, // 0b00
+            DATA = 0x1,  // 0b01
+            ACK = 0x2,   // 0b10
+        };
+
+        enum class RecvError {
+            BAD_ARG = 0x0,
+            BAD_OPCODE = 0x1,
+            END_OF_TAPE = 0x2,
+        };
+
+        TapeDriveDevice(std::vector<Tape> tapes);
         virtual ~TapeDriveDevice(void) override = default;
 
         virtual void startup(void) override;
@@ -126,7 +156,10 @@ namespace core
         virtual PIMicroOp tick(void) override;
 
     private:
-        std::vector<Tape> &tapes;
+        void reply(RecvOpcode opcode, unsigned int tape_num, uint8_t data);
+        void replyError(unsigned int tape_num, RecvError err);
+
+        std::vector<Tape> tapes;
         MemLocation recv_status;
         MemLocation recv_data;
         MemLocation send_status;

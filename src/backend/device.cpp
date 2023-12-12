@@ -1,6 +1,10 @@
 /*
  * Copyright 2020 McGraw-Hill Education. All rights reserved. No reproduction or distribution without the prior written consent of McGraw-Hill Education.
  */
+#include <cstring>
+#include <unistd.h>
+#include <fcntl.h>
+
 #include "device.h"
 
 using namespace lc3::core;
@@ -156,20 +160,135 @@ PIMicroOp DisplayDevice::tick(void)
     return nullptr;
 }
 
-Tape::Tape(std::string path) {
-    if (!(fp = fopen(path.c_str(), "w+"))) {
-        throw lc3::utils::exception("Could not open tape `" + path + "': "
-                                    + strerror(errno));
+void Tape::openFileIfNeeded(void)
+{
+    if (!fp) {
+        // TODO: use this hack on Windows
+        //FILE *hack;
+        //if (!(hack = fopen(path.c_str(), "a"))) {
+        //    throw lc3::utils::exception("Could not try to create tape `" + path + "': "
+        //                                + std::strerror(errno));
+        //}
+        //if (fclose(hack)) {
+        //    throw lc3::utils::exception("Could not try to close tape `" + path + "': "
+        //                                + std::strerror(errno));
+        //}
+
+        //if (!(fp = fopen(path.c_str(), "r+"))) {
+        //    throw lc3::utils::exception("Could not open tape `" + path + "': "
+        //                                + std::strerror(errno));
+        //}
+        int fd;
+        if ((fd = open(path.c_str(), O_CREAT | O_RDWR, 0644)) < 0) {
+            throw lc3::utils::exception("Could not open() tape `" + path + "': "
+                                        + std::strerror(errno));
+        }
+        if (!(fp = fdopen(fd, "r+"))) {
+            close(fd);
+            throw lc3::utils::exception("Could not fdopen() tape `" + path + "': "
+                                        + std::strerror(errno));
+        }
+
+        int ret;
+        if ((ret = fseek(fp, 0, SEEK_END)) < 0) {
+            throw lc3::utils::exception("Could not seek in tape `" + path + "': "
+                                        + std::strerror(errno));
+        }
+        file_size = ret;
+        if (fseek(fp, 0, SEEK_SET) < 0) {
+            throw lc3::utils::exception("Could not rewind tape `" + path + "': "
+                                        + std::strerror(errno));
+        }
+        file_pos = 0;
+        max_pos = 0;
     }
 }
 
-Tape::~Tape(void) {
-    if (fclose(fp)) {
-        throw lc3::utils::exception("Could not close tape: " + strerror(errno));
+void Tape::resizeTo(size_t size)
+{
+    // Need to resize yolo
+    if (fflush(fp) == EOF) {
+        throw lc3::utils::exception("Could not flush tape `" + path + "': "
+                                    + std::strerror(errno));
+    }
+    // Drop down to lower unix level
+    // TODO: support windows
+    int fd;
+    if ((fd = fileno(fp)) < 0) {
+        throw lc3::utils::exception("Could not get fd for tape `" + path + "': "
+                                    + std::strerror(errno));
+    }
+    if (ftruncate(fd, size) < 0) {
+        throw lc3::utils::exception("Could not grow tape `" + path + "': "
+                                    + std::strerror(errno));
     }
 }
 
-TapeDriveDevice::TapeDriveDevice(std::vector<Tape> &tapes) : tapes(tapes)
+void Tape::growIfNeeded(size_t pos)
+{
+    if (pos >= file_size) {
+        file_size += 1024;
+        resizeTo(file_size);
+    }
+}
+
+void Tape::seek(size_t pos)
+{
+    openFileIfNeeded();
+    growIfNeeded(pos);
+
+    if (fseek(fp, 0, SEEK_SET) < 0) {
+        throw lc3::utils::exception("Could not rewind tape `" + path + "': "
+                                    + std::strerror(errno));
+    }
+}
+
+int Tape::getc(void) {
+    openFileIfNeeded();
+
+    int ret;
+    if ((ret = fgetc(fp)) == EOF) {
+        return -1;
+    } else {
+        file_pos++;
+        max_pos = std::max(file_pos, max_pos);
+        return ret;
+    }
+}
+
+void Tape::putc(uint8_t c)
+{
+    openFileIfNeeded();
+    growIfNeeded(file_pos);
+
+    // In case the last thing we did was a read
+    // (required by ANSI C)
+    if (fseek(fp, file_pos, SEEK_SET) < 0) {
+        throw lc3::utils::exception("Could not fseek(0) tape `" + path + "': "
+                                    + std::strerror(errno));
+    }
+
+    int ret;
+    if ((ret = fputc(c, fp)) == EOF) {
+        throw lc3::utils::exception("Could not putchar to tape `" + path + "': " + std::strerror(errno));
+    } else {
+        file_pos++;
+        max_pos = std::max(file_pos, max_pos);
+    }
+}
+
+Tape::~Tape(void)
+{
+    if (fp) {
+        resizeTo(max_pos);
+        if (fclose(fp)) {
+            // TODO: fix warning about this
+            throw lc3::utils::exception("Could not close tape `" + path + "': " + std::strerror(errno));
+        }
+    }
+}
+
+TapeDriveDevice::TapeDriveDevice(std::vector<Tape> tapes) : tapes(tapes)
 {
     recv_status.setValue(0x0000);
     recv_data.setValue(0x0000);
@@ -208,13 +327,70 @@ std::pair<uint16_t, PIMicroOp> TapeDriveDevice::read(uint16_t addr)
     return std::make_pair(value, nullptr);
 }
 
+void TapeDriveDevice::reply(RecvOpcode opcode, unsigned int tape_num, uint8_t data)
+{
+    recv_status.setValue(recv_status.getValue() | 0x8000);
+    // Message format:
+    // 15     14 13       8 7         0
+    // .-------------------------------.
+    // | opcode | tape num |   data    |
+    // '-------------------------------'
+    recv_data.setValue(static_cast<unsigned int>(opcode) << 14 | tape_num << 8 | data);
+}
+
+void TapeDriveDevice::replyError(unsigned int tape_num, RecvError err) {
+    reply(RecvOpcode::ERROR, tape_num, static_cast<uint8_t>(err));
+}
+
 PIMicroOp TapeDriveDevice::write(uint16_t addr, uint16_t value)
 {
-    if (addr == TSDR) {
+    if (addr == TSDR && (send_status.getValue() & 0x8000)) {
         // Clear ready bit. Don't bother with micro-op nonsense
         send_status.setValue(send_status.getValue() & 0x7FFF);
+        // TODO: get rid of this?
         send_data.setValue(value);
-        break;
+
+        // Message format:
+        // 15     14 13       8 7         0
+        // .-------------------------------.
+        // | opcode | tape num |   data    |
+        // '-------------------------------'
+        SendOpcode opcode = static_cast<SendOpcode>(value >> 14);
+        unsigned int tape_num = (value >> 8) & 0x3FU;
+        uint8_t data = value & 0xFFU;
+
+        if (tape_num >= tapes.size()) {
+            // TODO: reply with ERROR
+        }
+
+        Tape &tape = tapes[tape_num];
+
+        int c;
+        switch (opcode) {
+            case SendOpcode::SEEK:
+                tape.seek(data);
+                reply(RecvOpcode::ACK, tape_num, 0);
+                break;
+            case SendOpcode::GETC:
+                if (data) {
+                    replyError(tape_num, RecvError::BAD_ARG);
+                } else {
+                    c = tape.getc();
+                    if (c < 0) { // EOF
+                        replyError(tape_num, RecvError::END_OF_TAPE);
+                    } else {
+                        reply(RecvOpcode::DATA, tape_num, c);
+                    }
+                }
+                break;
+            case SendOpcode::PUTC:
+                tape.putc(data);
+                reply(RecvOpcode::ACK, tape_num, 0);
+                break;
+            default:
+                replyError(tape_num, RecvError::BAD_OPCODE);
+                break;
+        }
     }
 
     return nullptr;
@@ -228,7 +404,7 @@ std::vector<uint16_t> TapeDriveDevice::getAddrMap(void) const
 PIMicroOp TapeDriveDevice::tick(void)
 {
     // Set ready bit.
-    status.setValue(status.getValue() | 0x8000);
+    send_status.setValue(send_status.getValue() | 0x8000);
 
     return nullptr;
 }

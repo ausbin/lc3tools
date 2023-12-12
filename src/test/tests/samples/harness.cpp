@@ -130,6 +130,7 @@ int main(int argc, char **argv) {
     //uint32_t print_level = DEFAULT_PRINT_LEVEL;
     uint32_t print_level = 4;
     lc3::sim simulator(printer, inputter, print_level);
+    simulator.setIgnorePrivilege(true);
     simulator.loadObjFile(objfilename);
     simulator.run();
 
