@@ -65,7 +65,7 @@ POLL2 ldi r0, TRSR_ADDR
       HANDLE_EOF
           lea r0, EOF_MSG
           puts
-          br BAIL
+          br SET_EOF
 
 DO_PUTC ldi r0, TSSR_ADDR
         brzp DO_PUTC
@@ -124,6 +124,36 @@ POLL3 ldi r0, TRSR_ADDR
           puts
           br BAIL
 
+SET_EOF ldi r0, TSSR_ADDR
+        brzp SET_EOF
+        ld r0, SETEOF1_MSG
+        sti r0, TSDR_ADDR
+
+POLL4 ldi r0, TRSR_ADDR
+      brzp POLL4
+      ldi r0, TRDR_ADDR
+      ld r1, OPCODE_MASK
+      and r1, r0, r1
+      jsr GET_OPCODE
+      ; r2 now contains the opcode
+      ld r1, DATA_MASK
+      and r1, r0, r1
+      ; r1 now contains data
+
+      ; switch (opcode) {
+      lea r3, JMP_SETEOF_OPCODE
+      add r3, r3, r2
+      ldr r3, r3, 0
+      jmp r3
+      JMP_SETEOF_OPCODE
+      .fill HANDLE_PUTC_ERR
+      .fill HANDLE_PUTC_DATA
+      .fill HANDLE_SETEOF_ACK
+      .fill HANDLE_PUTC_WTF
+
+      HANDLE_SETEOF_ACK
+          br BAIL
+
 BAIL halt
 
 ; Inputs: message (r1, clobbered)
@@ -154,6 +184,7 @@ OPCODE_MASK .fill xC000
 DATA_MASK .fill x00FF
 GETC0_MSG .fill x4000
 PUTC1_MSG .fill x8100
+SETEOF1_MSG .fill xC100
 TRSR_ADDR .fill xFE08
 TRDR_ADDR .fill xFE0A
 TSSR_ADDR .fill xFE0C

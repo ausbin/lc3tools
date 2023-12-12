@@ -200,12 +200,13 @@ void Tape::openFileIfNeeded(void)
                                         + std::strerror(errno));
         }
         file_pos = 0;
-        max_pos = 0;
     }
 }
 
 void Tape::resizeTo(size_t size)
 {
+    file_size = size;
+
     // Need to resize yolo
     if (fflush(fp) == EOF) {
         throw lc3::utils::exception("Could not flush tape `" + path + "': "
@@ -227,8 +228,7 @@ void Tape::resizeTo(size_t size)
 void Tape::growIfNeeded(size_t pos)
 {
     if (pos >= file_size) {
-        file_size += 1024;
-        resizeTo(file_size);
+        resizeTo(file_size + 1024);
     }
 }
 
@@ -251,7 +251,6 @@ int Tape::getc(void) {
         return -1;
     } else {
         file_pos++;
-        max_pos = std::max(file_pos, max_pos);
         return ret;
     }
 }
@@ -270,17 +269,22 @@ void Tape::putc(uint8_t c)
 
     int ret;
     if ((ret = fputc(c, fp)) == EOF) {
-        throw lc3::utils::exception("Could not putchar to tape `" + path + "': " + std::strerror(errno));
+        throw lc3::utils::exception("Could not fputc to tape `" + path
+                                    + "': " + std::strerror(errno));
     } else {
         file_pos++;
-        max_pos = std::max(file_pos, max_pos);
     }
+}
+
+void Tape::setEof(void) {
+    openFileIfNeeded();
+
+    resizeTo(file_pos);
 }
 
 Tape::~Tape(void)
 {
     if (fp) {
-        resizeTo(max_pos);
         if (fclose(fp)) {
             // TODO: fix warning about this
             throw lc3::utils::exception("Could not close tape `" + path + "': " + std::strerror(errno));
@@ -387,7 +391,16 @@ PIMicroOp TapeDriveDevice::write(uint16_t addr, uint16_t value)
                 tape.putc(data);
                 reply(RecvOpcode::ACK, tape_num, 0);
                 break;
+            case SendOpcode::SET_EOF:
+                if (data) {
+                    replyError(tape_num, RecvError::BAD_ARG);
+                } else {
+                    tape.setEof();
+                    reply(RecvOpcode::ACK, tape_num, 0);
+                }
+                break;
             default:
+                // Should be unreachable, but just in case
                 replyError(tape_num, RecvError::BAD_OPCODE);
                 break;
         }

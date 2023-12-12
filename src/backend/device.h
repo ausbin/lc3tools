@@ -105,18 +105,18 @@ namespace core
     class Tape
     {
     public:
-        Tape(std::string path) : path(path), fp(nullptr), file_size(0), file_pos(0), max_pos(0) {}
+        Tape(std::string path) : path(path), fp(nullptr), file_size(0), file_pos(0) {}
         ~Tape(void);
 
         void seek(size_t pos);
         int getc(void);
         void putc(uint8_t data);
+        void setEof(void);
     private:
         std::string path;
         FILE *fp;
         size_t file_size;
         size_t file_pos;
-        size_t max_pos;
 
         void openFileIfNeeded(void);
         void growIfNeeded(size_t pos);
@@ -127,9 +127,10 @@ namespace core
     {
     public:
         enum class SendOpcode {
-            SEEK = 0x0, // 0b00
-            GETC = 0x1, // 0b01
-            PUTC = 0x2, // 0b10
+            SEEK = 0x0,    // 0b00
+            GETC = 0x1,    // 0b01
+            PUTC = 0x2,    // 0b10
+            SET_EOF = 0x3, // 0b11
         };
 
         enum class RecvOpcode {
