@@ -51,6 +51,12 @@ ISAHandler::ISAHandler(void)
     instructions.push_back(std::make_shared<INInstruction>());
     instructions.push_back(std::make_shared<PUTSPInstruction>());
     instructions.push_back(std::make_shared<HALTInstruction>());
+    instructions.push_back(std::make_shared<FOPENInstruction>());
+    instructions.push_back(std::make_shared<FPUTCInstruction>());
+    instructions.push_back(std::make_shared<FGETCInstruction>());
+    instructions.push_back(std::make_shared<FTRUNCInstruction>());
+    instructions.push_back(std::make_shared<FREWINDInstruction>());
+    instructions.push_back(std::make_shared<FCLOSEInstruction>());
 }
 
 PIMicroOp ADDRegInstruction::buildMicroOps(MachineState const & state) const

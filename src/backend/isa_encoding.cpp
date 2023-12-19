@@ -229,3 +229,39 @@ HALTInstruction::HALTInstruction(void) : TRAPInstruction("halt", {
     std::make_shared<FixedOperand>(4, 0x0),
     std::make_shared<FixedOperand>(8, 0x25)
 }) { }
+
+FOPENInstruction::FOPENInstruction(void) : TRAPInstruction("fopen", {
+    std::make_shared<FixedOperand>(4, 0xf),
+    std::make_shared<FixedOperand>(4, 0x0),
+    std::make_shared<FixedOperand>(8, 0x30)
+}) { }
+
+FPUTCInstruction::FPUTCInstruction(void) : TRAPInstruction("fputc", {
+    std::make_shared<FixedOperand>(4, 0xf),
+    std::make_shared<FixedOperand>(4, 0x0),
+    std::make_shared<FixedOperand>(8, 0x31)
+}) { }
+
+FGETCInstruction::FGETCInstruction(void) : TRAPInstruction("fgetc", {
+    std::make_shared<FixedOperand>(4, 0xf),
+    std::make_shared<FixedOperand>(4, 0x0),
+    std::make_shared<FixedOperand>(8, 0x32)
+}) { }
+
+FTRUNCInstruction::FTRUNCInstruction(void) : TRAPInstruction("ftrunc", {
+    std::make_shared<FixedOperand>(4, 0xf),
+    std::make_shared<FixedOperand>(4, 0x0),
+    std::make_shared<FixedOperand>(8, 0x33)
+}) { }
+
+FREWINDInstruction::FREWINDInstruction(void) : TRAPInstruction("frewind", {
+    std::make_shared<FixedOperand>(4, 0xf),
+    std::make_shared<FixedOperand>(4, 0x0),
+    std::make_shared<FixedOperand>(8, 0x34)
+}) { }
+
+FCLOSEInstruction::FCLOSEInstruction(void) : TRAPInstruction("fclose", {
+    std::make_shared<FixedOperand>(4, 0xf),
+    std::make_shared<FixedOperand>(4, 0x0),
+    std::make_shared<FixedOperand>(8, 0x35)
+}) { }

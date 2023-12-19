@@ -282,7 +282,7 @@ void Tape::setEof(void) {
     resizeTo(file_pos);
 }
 
-Tape::~Tape(void)
+void Tape::shutdown(void)
 {
     if (fp) {
         if (fclose(fp)) {
@@ -290,10 +290,25 @@ Tape::~Tape(void)
             throw lc3::utils::exception("Could not close tape `" + path + "': " + std::strerror(errno));
         }
     }
+    fp = nullptr;
+    file_pos = 0;
+    file_size = 0;
 }
 
-TapeDriveDevice::TapeDriveDevice(std::vector<Tape> tapes) : tapes(tapes)
+Tape::~Tape(void) {
+    // Just in case
+    shutdown();
+}
+
+TapeDriveDevice::TapeDriveDevice(std::vector<std::string> &tape_filenames)
 {
+    for (size_t i = 0; i < MAX_TAPES; i++) {
+        std::string name = i >= tape_filenames.size() || tape_filenames[i].empty()?
+                           "tape" + std::to_string(i) + ".bin"
+                           : tape_filenames[i];
+        tapes.emplace_back(name);
+    }
+
     recv_status.setValue(0x0000);
     recv_data.setValue(0x0000);
     send_status.setValue(0x0000);
@@ -307,7 +322,9 @@ void TapeDriveDevice::startup(void)
 
 void TapeDriveDevice::shutdown(void)
 {
-    // TODO: remove this?
+    for (Tape &tape : tapes) {
+        tape.shutdown();
+    }
 }
 
 std::pair<uint16_t, PIMicroOp> TapeDriveDevice::read(uint16_t addr)

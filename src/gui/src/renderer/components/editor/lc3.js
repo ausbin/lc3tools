@@ -10,7 +10,7 @@ ace.define("ace/mode/lc3_highlight_rules",
       this.$rules = { start: [
         {
           token: 'keyword.control.assembly',
-          regex: '\\b(?:add|and|br(n?z?p?)?|jmp|jsr|jsrr|ld|ldi|ldr|lea|not|ret|rti|st|sti|str|trap|getc|out|putc|puts|in|putsp|halt)\\b',
+          regex: '\\b(?:add|and|br(n?z?p?)?|jmp|jsr|jsrr|ld|ldi|ldr|lea|not|ret|rti|st|sti|str|trap|getc|out|putc|puts|in|putsp|fopen|fputc|fgetc|ftrunc|frewind|fclose|halt)\\b',
           caseInsensitive: true
         },
         {

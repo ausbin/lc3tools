@@ -43,12 +43,12 @@ POLL2 ldi r0, TRSR_ADDR
           br BAIL
 
       HANDLE_DATA
-          lea r0, DATA_MSG
-          puts
-          add r0, r1, 0
-          putc
-          ld r0, ASCII_LF
-          putc
+          ;lea r0, DATA_MSG
+          ;puts
+          ;add r0, r1, 0
+          ;putc
+          ;ld r0, ASCII_LF
+          ;putc
           ;br POLL1
           br DO_PUTC
 
@@ -173,7 +173,7 @@ GET_OPCODE
 EOF_MSG .stringz "Hit eof\n"
 WTF_MSG .stringz "getc: Bogus opcode\n"
 PUTC_WTF_MSG .stringz "putc: Bogus opcode\n"
-DATA_MSG .stringz "Got data: "
+;DATA_MSG .stringz "Got data: "
 PUTC_DATA_MSG .stringz "Got data, wtf?\n"
 ACK_MSG .stringz "Got ack, wtf?\n"
 ERR_MSG .stringz "getc error: "

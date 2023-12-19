@@ -18,9 +18,8 @@ Simulator::Simulator(lc3::utils::IPrinter & printer, lc3::utils::IInputter & inp
 {
     devices.emplace_back(std::make_shared<KeyboardDevice>(inputter));
     devices.emplace_back(std::make_shared<DisplayDevice>(logger));
-
-    std::vector<Tape> tapes {{"tape0.bin"}, {"tape1.bin"}};
-    devices.emplace_back(std::make_shared<TapeDriveDevice>(tapes));
+    std::vector<std::string> no_names {};
+    devices.emplace_back(std::make_shared<TapeDriveDevice>(no_names));
 
     for(PIDevice dev : devices) {
         for(uint16_t dev_addr : dev->getAddrMap()) {

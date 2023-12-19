@@ -112,6 +112,7 @@ namespace core
         int getc(void);
         void putc(uint8_t data);
         void setEof(void);
+        void shutdown(void);
     private:
         std::string path;
         FILE *fp;
@@ -126,6 +127,8 @@ namespace core
     class TapeDriveDevice : public IDevice
     {
     public:
+        static constexpr size_t MAX_TAPES = 1 << 6;
+
         enum class SendOpcode {
             SEEK = 0x0,    // 0b00
             GETC = 0x1,    // 0b01
@@ -145,7 +148,7 @@ namespace core
             END_OF_TAPE = 0x2,
         };
 
-        TapeDriveDevice(std::vector<Tape> tapes);
+        TapeDriveDevice(std::vector<std::string> &tape_names);
         virtual ~TapeDriveDevice(void) override = default;
 
         virtual void startup(void) override;

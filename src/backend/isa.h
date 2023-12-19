@@ -250,6 +250,42 @@ namespace core
     public:
         HALTInstruction(void);
     };
+
+    class FOPENInstruction : public TRAPInstruction
+    {
+    public:
+        FOPENInstruction(void);
+    };
+
+    class FPUTCInstruction : public TRAPInstruction
+    {
+    public:
+        FPUTCInstruction(void);
+    };
+
+    class FGETCInstruction : public TRAPInstruction
+    {
+    public:
+        FGETCInstruction(void);
+    };
+
+    class FTRUNCInstruction : public TRAPInstruction
+    {
+    public:
+        FTRUNCInstruction(void);
+    };
+
+    class FREWINDInstruction : public TRAPInstruction
+    {
+    public:
+        FREWINDInstruction(void);
+    };
+
+    class FCLOSEInstruction : public TRAPInstruction
+    {
+    public:
+        FCLOSEInstruction(void);
+    };
 };
 };
 
