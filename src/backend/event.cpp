@@ -149,8 +149,10 @@ void LoadObjFileEvent::handleEvent(MachineState & state)
             break;
         }
 
-        // enforce that all code should start at user space (0x3000)
-        state.writeResetPC(USER_START);
+        // OS startup code should run first. This pushes a dummy PC of 0x3000
+        // onto the supervisor stack and then RTIs. Thus, the effective user
+        // reset PC is 0x3000.
+        state.writeResetPC(RESET_PC);
 
         if(mem.isOrig()) {
             fill_pc = mem.getValue();
