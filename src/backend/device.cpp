@@ -235,11 +235,19 @@ void Tape::growIfNeeded(size_t pos)
 void Tape::seek(size_t pos)
 {
     openFileIfNeeded();
-    growIfNeeded(pos);
 
-    if (fseek(fp, 0, SEEK_SET) < 0) {
-        throw lc3::utils::exception("Could not rewind tape `" + path + "': "
-                                    + std::strerror(errno));
+    if (!pos && !file_pos) {
+        // Special case: if rewinding to the beginning after we just opened the
+        // file, don't grow the file. This is necessary because in the LC-3 OS,
+        // we frewind as the last step of fopen. If the file is empty, we want
+        // it to stay empty instead of getting padded with 0s.
+    } else {
+        growIfNeeded(pos);
+
+        if (fseek(fp, pos, SEEK_SET) < 0) {
+            throw lc3::utils::exception("Could not seek tape `" + path + "': "
+                                        + std::strerror(errno));
+        }
     }
 }
 

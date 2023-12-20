@@ -1,4 +1,5 @@
 .orig x3000
+ld r6, INIT_STACK_PTR
 jsr INIT_TABLES
 jsr OPEN_STDIN
 jsr OPEN_STDOUT
@@ -6,10 +7,21 @@ jsr OPEN_STDOUT
 lea r0, DRIVE_0
 and r1, r1, 0
 fopen
+fgetc
+putc
+fgetc
+putc
+fgetc
+putc
 halt
 DRIVE_0 .stringz "/dev/st0"
+INIT_STACK_PTR .fill xF000
 
 INIT_TABLES
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+
     ; for (i = 0; i < 16; i++) {
     and r0, r0, 0 ; i = 0
     FD_TABLE_INIT_LOOP
@@ -55,6 +67,9 @@ INIT_TABLES
     brn TAPENUM_TABLE_INIT_LOOP
     ; }
 
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
 
     INIT_TABLES__FD_TABLE__ADDR .fill FD_TABLE
@@ -63,6 +78,10 @@ INIT_TABLES
     INIT_TABLES__TAPENUM_TABLE_LEN__ADDR .fill TAPENUM_TABLE_LEN
 
 OPEN_STDIN
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+
     ; fd_ent *fd0 = &fd_table[0];
     ld r1, OPEN_STDIN__FD_TABLE__ADDR
     ; fd0->state = 0; // R
@@ -85,6 +104,10 @@ OPEN_STDIN
     ; fd0->close = &keyboard_close
     lea r0, KEYBOARD_CLOSE
     str r0, r1, 6
+
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
 
     OPEN_STDIN__FD_TABLE__ADDR .fill FD_TABLE
@@ -105,6 +128,10 @@ KEYBOARD_CLOSE
     ret
 
 OPEN_STDOUT
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+
     ; fd_ent *fd1 = &fd_table[1];
     ld r1, OPEN_STDOUT__FD_TABLE__ADDR
     add r1, r1, 7
@@ -129,6 +156,10 @@ OPEN_STDOUT
     ; fd1->close = &console_close
     lea r0, CONSOLE_CLOSE
     str r0, r1, 6
+
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
 
     OPEN_STDOUT__FD_TABLE__ADDR .fill FD_TABLE
@@ -150,6 +181,10 @@ CONSOLE_CLOSE
 
 ; Input: Byte to write (r0, written below as c), Drive number (r1)
 TAPE_PUTC
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+
     ; Wait to send
     TAPE_PUTC_POLL1
         ldi r2, TSSR_ADDR
@@ -207,6 +242,9 @@ TAPE_PUTC
 
     TAPE_PUTC_HANDLE_ACK
     ; We're good, return
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
 
     ; Message format:
@@ -223,6 +261,10 @@ TAPE_PUTC
 ; Input: Drive number (r1)
 ; Output: Byte from tape (r0)
 TAPE_GETC
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+
     ; Wait to send
     TAPE_GETC_POLL1
         ldi r2, TSSR_ADDR
@@ -259,6 +301,16 @@ TAPE_GETC
         .fill TAPE_GETC_HANDLE_UNKNOWN
 
     TAPE_GETC_HANDLE_ERR
+        ; 0x02 is the error code for EOF. It's returned as an "error" but we
+        ; won't treat it as one. Instead, we'll just return -1.
+        add r0, r1, -2
+        brnp TAPE_GETC_SERIOUS_ERROR
+        ; Return -1 to signal EOF
+        and r0, r0, 0
+        add r0, r0, -1
+        br TAPE_GETC_DONE
+
+        TAPE_GETC_SERIOUS_ERROR
         lea r0, TAPE_GETC_WHOAMI
         puts
         jsr TAPE_PRINT_ERR ; Will not return
@@ -282,29 +334,47 @@ TAPE_GETC
         TAPE_GETC_UNKNOWN_ERR_MSG .stringz "fgetc: ERROR: Unknown message id sent by tape drive\n"
 
     TAPE_GETC_DONE
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
     GETC_MSG  .fill x4000 ; message with tapenum=0 and opcode=0b01
 
 ; Input: Drive number (r1)
 TAPE_TRUNC
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
     ld r2, SET_EOF_MSG
     lea r3, TAPE_TRUNC_WHOAMI
     jsr TAPE_SEND_COMMAND
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
     SET_EOF_MSG .fill xC000 ; message with tapenum=0 and opcode=0b11 (set eof)
     TAPE_TRUNC_WHOAMI .stringz "ftrunc: "
 
 ; Input: Drive number (r1)
 TAPE_REWIND
-    ld r2, SET_EOF_MSG
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+    ld r2, SEEK0_MSG
     lea r3, TAPE_REWIND_WHOAMI
     jsr TAPE_SEND_COMMAND
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
-    SEEK_MSG .fill x0000 ; message with tapenum=0, opcode=0b00 (seek), and seekpos=0x00
+    SEEK0_MSG .fill x0000 ; message with tapenum=0, opcode=0b00 (seek), and seekpos=0x00
     TAPE_REWIND_WHOAMI .stringz "frewind: "
 
 ; Input: Drive number (r1)
 TAPE_CLOSE
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
     ; Be kind, rewind!
     frewind
 
@@ -316,12 +386,19 @@ TAPE_CLOSE
     and r0, r0, 0
     add r0, r0, -1
     str r0, r2, 0
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
     TAPE_CLOSE__TAPENUM_TABLE_LEN__ADDR .fill TAPENUM_TABLE_LEN
 
 ; Inputs: Command message template (r2), string of calling syscall (r3)
 ; Warning: this will clobber the daylights out of all registers
 TAPE_SEND_COMMAND
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
+
     ; Wait to send
     TAPE_CMD_POLL1
         ldi r4, TSSR_ADDR
@@ -380,12 +457,18 @@ TAPE_SEND_COMMAND
 
     TAPE_CMD_HANDLE_ACK
     ; We're good, return
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
 
 ; Inputs: message (r1)
 ; Outputs: data (r1), opcode (r2)
 ; Uses stack
 DECODE_TAPE_MSG
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
     ; Mask out upper 8 bits to get data (the lower 8 bits)
     ld r2, TAPE_DATA_MASK
     and r2, r1, r2
@@ -407,6 +490,9 @@ DECODE_TAPE_MSG
     ; Recover the 8 bits of data we saved earlier
     ldr r1, r6, 0
     add r6, r6, 1
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
     TAPE_OPCODE_MASK .fill xC000
     TAPE_DATA_MASK   .fill x00FF
@@ -414,6 +500,9 @@ DECODE_TAPE_MSG
 ; Input: drivenum (r1)
 ; Output: drivenum << 8 (r1)
 SHIFT_DRIVENUM
+    ; save return address
+    add r6, r6, -1
+    str r7, r6, 0
     ; Shift over r1, i.e., r1 << 8
     add r1, r1, r1 ; r1 <- 2*drivenum
     add r1, r1, r1 ; r1 <- 4*drivenum
@@ -423,9 +512,13 @@ SHIFT_DRIVENUM
     add r1, r1, r1 ; r1 <- 64*drivenum
     add r1, r1, r1 ; r1 <- 128*drivenum
     add r1, r1, r1 ; r1 <- 256*drivenum == r1 <- drivenum << 8
+    ; restore return address
+    ldr r7, r6, 0
+    add r6, r6, 1
     ret
 
 ; Input: Message data (r1)
+; Does not return (it HALTs)
 TAPE_PRINT_ERR
     lea r0, TAPE_ERR_MSG
     puts
@@ -448,11 +541,11 @@ TAPE_PRINT_ERR
     TAPE_GETC_ERR_TABLE_11 .stringz "Unknown error\n"   ; 0b11. Currently never sent by hardware
 
 ; Inputs: Path to open (r0), r/w (r1)
-; Output: new fd (r0)
+; Output: new fd (r1)
 TRAP_FOPEN
     ; save regs
     add r6, r6, -1
-    str r1, r6, 0
+    str r0, r6, 0
     add r6, r6, -1
     str r2, r6, 0
     add r6, r6, -1
@@ -461,10 +554,12 @@ TRAP_FOPEN
     str r4, r6, 0
     add r6, r6, -1
     str r5, r6, 0
+    add r6, r6, -1
+    str r7, r6, 0
 
     add r1, r1, 0
     brz RW_OK
-    add r1, r1, -1
+    add r2, r1, -1
     brz RW_OK
     br RW_BOGUS
 
@@ -581,21 +676,23 @@ TRAP_FOPEN
     ld r0, TRAP_FOPEN__TAPE_TRUNC__ADDR
     str r0, r5, 4
     ; ent->rewind = &tape_rewind
-    lea r0, TRAP_FOPEN__TAPE_REWIND__ADDR
+    ld r0, TRAP_FOPEN__TAPE_REWIND__ADDR
     str r0, r5, 5
     ; ent->close = &tape_close
-    lea r0, TRAP_FOPEN__TAPE_CLOSE__ADDR
+    ld r0, TRAP_FOPEN__TAPE_CLOSE__ADDR
     str r0, r5, 6
 
     ; *tapenum_ent = fd
     str r4, r3, 0
-    ; return fd
-    add r0, r4, 0
+    ; return fd via r1
+    add r1, r4, 0
 
     ; Rewind, just in case LC3Tools has persisted some state unexpectedly
     frewind
 
     ; restore regs
+    ldr r7, r6, 0
+    add r6, r6, 1
     ldr r5, r6, 0
     add r6, r6, 1
     ldr r4, r6, 0
@@ -604,7 +701,7 @@ TRAP_FOPEN
     add r6, r6, 1
     ldr r2, r6, 0
     add r6, r6, 1
-    ldr r1, r6, 0
+    ldr r0, r6, 0
     add r6, r6, 1
     rti
 
