@@ -194,7 +194,12 @@ void Tape::openFileIfNeeded(void)
             throw lc3::utils::exception("Could not seek in tape `" + path + "': "
                                         + std::strerror(errno));
         }
-        file_size = ret;
+        long ftell_ret;
+        if ((ftell_ret = ftell(fp)) < 0) {
+            throw lc3::utils::exception("Could not ftell in tape `" + path + "': "
+                                        + std::strerror(errno));
+        }
+        file_size = ftell_ret;
         if (fseek(fp, 0, SEEK_SET) < 0) {
             throw lc3::utils::exception("Could not rewind tape `" + path + "': "
                                         + std::strerror(errno));
@@ -236,19 +241,20 @@ void Tape::seek(size_t pos)
 {
     openFileIfNeeded();
 
-    if (!pos && !file_pos) {
-        // Special case: if rewinding to the beginning after we just opened the
-        // file, don't grow the file. This is necessary because in the LC-3 OS,
-        // we frewind as the last step of fopen. If the file is empty, we want
-        // it to stay empty instead of getting padded with 0s.
+    if (!pos) {
+        // Special case: if rewinding to the beginning, don't grow the file.
+        // This is necessary because in the LC-3 OS, we frewind as the last
+        // step of fopen. We don't want to needlessly pad files with 0s.
     } else {
         growIfNeeded(pos);
-
-        if (fseek(fp, pos, SEEK_SET) < 0) {
-            throw lc3::utils::exception("Could not seek tape `" + path + "': "
-                                        + std::strerror(errno));
-        }
     }
+
+    if (fseek(fp, pos, SEEK_SET) < 0) {
+        throw lc3::utils::exception("Could not seek tape `" + path + "': "
+                                    + std::strerror(errno));
+    }
+
+    file_pos = pos;
 }
 
 int Tape::getc(void) {
@@ -323,6 +329,13 @@ TapeDriveDevice::TapeDriveDevice(std::vector<std::string> &tape_filenames)
     send_data.setValue(0x0000);
 }
 
+TapeDriveDevice::~TapeDriveDevice()
+{
+    for (Tape &tape : tapes) {
+        tape.shutdown();
+    }
+}
+
 void TapeDriveDevice::startup(void)
 {
     // TODO: remove this?
@@ -330,9 +343,7 @@ void TapeDriveDevice::startup(void)
 
 void TapeDriveDevice::shutdown(void)
 {
-    for (Tape &tape : tapes) {
-        tape.shutdown();
-    }
+    // TODO: remove this?
 }
 
 std::pair<uint16_t, PIMicroOp> TapeDriveDevice::read(uint16_t addr)

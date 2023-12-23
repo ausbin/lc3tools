@@ -149,7 +149,7 @@ namespace core
         };
 
         TapeDriveDevice(std::vector<std::string> &tape_names);
-        virtual ~TapeDriveDevice(void) override = default;
+        virtual ~TapeDriveDevice(void) override;
 
         virtual void startup(void) override;
         virtual void shutdown(void) override;
