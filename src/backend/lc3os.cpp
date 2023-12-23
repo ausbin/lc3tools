@@ -1134,6 +1134,7 @@ TAPE_TRUNC
     TAPE_TRUNC_WHOAMI .STRINGZ "ftrunc: "
 
 ; Input: Drive number (r1)
+; (Note: TAPE_CLOSE also calls this, not just TRAP_FREWIND)
 TAPE_REWIND
     ; save return address
     ADD R6, R6, #-1
@@ -1153,8 +1154,14 @@ TAPE_CLOSE
     ; save return address
     ADD R6, R6, #-1
     STR R7, R6, #0
+
+    ; back up r1 to the stack in case TAPE_REWIND clobbers it
+    ADD R6, R6, #-1
+    STR R1, R6, 0
     ; Be kind, rewind!
-    FREWIND
+    JSR TAPE_REWIND
+    LDR R1, R6, 0
+    ADD R6, R6, #1
 
     ; Free up entry in tapenum table
     ; tapenum_ent *ent = tapenum_table + drivenum;
